@@ -55,12 +55,8 @@ while(i < num_preferences):
 preferences = list()
 
 with open(file_name, 'r') as data_file:
-	responce_number = 0
+	responce_number = 1
 	for line in data_file:
-		if responce_number == 0:
-			responce_number += 1
-			continue
-		
 		split_line = line.rstrip().replace('"', '').split(',')
 		
 		person_identifier = split_line[identifier_collum]
@@ -76,69 +72,85 @@ with open(file_name, 'r') as data_file:
 
 num_people = len(preferences)
 
-#a partial solution is a list of preferences
-#it is valid if an only if there are collisions caused by two preferences being for the same thing
-def is_partial_solution_valid(sol):
-	collisions = dict()
-	
-	i = 0
-	while i < num_people:
-		country = preferences[i][1][sol[i]]
-		collisions[country] = collisions.get(country, 0) + 1
-		i += 1
-	
-	for country in collisions:
-		if collisions[country] >= 2: return False
-	return True
+print("Finding best preferences selection for", num_people, "people each with", num_preferences, "preferences")
 
-#returns increments a partial solution
-#running until the function return None garantees that all possible partial solutions will be generators
-#returning 0 indicates that the generated solution is garanteed to be rejected
-def generate_partial_solution(sol):
-	if sol == None: return None
-
-	new_sol = [0] * num_people
-	
-	new_sol = sol
-	new_sol[0] += 1
-	
-	i = 0
-	while i < num_people:
-		if new_sol[i] > num_preferences - 1:
-			if i + 1 > num_people - 1: return None
-			new_sol[i] = 0
-			new_sol[i + 1] += 1
-		else:
-			break
-		i += 1
-		
-	return sol
-
-#the better the solution the lowre the result
+#the better the solution the lower the result
 #if a < b then a is better than b
-def score_partial_solution(sol):
+def score_solution(sol):
 	return sum(sol)
 
-possible_solution = [0] * num_people
+#get the name of the preference
+def get_country_from_preference(person, preference):
+	return preferences[person][1][preference]
+
+partial_solution = [0] * num_people
+collisions = dict()
+index = 0
+score = score_solution(partial_solution)
+
 best_solution = None
+best_score = None
+first_solution = None
 
-#test every possible sulution
-#if it is the first valid solution record it
-#if the current sollution is better than the previous record it
-while possible_solution != None:
-	if possible_solution != 0:
-		if is_partial_solution_valid(possible_solution):
-			if best_solution == None:
-				best_solution = (score_partial_solution(possible_solution), possible_solution.copy())
-			elif score_partial_solution(possible_solution) <= best_solution[0]:
-				best_solution = (score_partial_solution(possible_solution), possible_solution.copy())
+country = None
+first = True
+while True:
+	if partial_solution[index] >= num_preferences:
+		score -= partial_solution[index]
+		partial_solution[index] = 0
+		index -= 1
+		#print(partial_solution)
+		if index < 0: break
+		partial_solution[index] += 1
+		score += 1
+		continue
 	
-	possible_solution = generate_partial_solution(possible_solution)
+	#get the new preference and add it to the collisions to check in constant time if the preference collides with another
+	country = get_country_from_preference(index, partial_solution[index])
+	num = collisions.get(country, 0)
+	collisions[country] = num + 1
+	#if the partial solution is not valid
+	if num == 1:		
+		collisions[country] -= 1
+		partial_solution[index] += 1
+		score += 1
+	#if the partial solution is valid
+	else:
+		#if the partial position is a posible solution
+		if index >= num_people - 1:
+			if first:
+				best_solution = partial_solution.copy()
+				best_score = score
+				first_solution = partial_solution.copy()
+				#print("First come first serve solution:", best_solution)
+				first = False
+			else:
+				if score < best_score:
+					best_solution = partial_solution.copy()
+					best_score = score
+			
+			collisions[country] -= 1
+			partial_solution[index] += 1
+			score += 1
+			if partial_solution[index] >= num_preferences:
+				score -= partial_solution[index]
+				partial_solution[index] = 0
+				index -= 1
+				partial_solution[index] += 1
+				score += 1
+		#continue to next node in three
+		else:
+			index += 1
 
-if best_solution == None:
-	print("No valid solution found")
-else:
-	i = 0
-	while i < num_people:
-		print(preferences[i][0] + ": " + preferences[i][1][best_solution[1][i]] + "  |  got preference: " + str(best_solution[1][i] + 1))
-		i += 1
+#display the answer
+#print("best solution:", best_solution)
+if first_solution == best_solution:
+	print()	
+	print("same solution found as first come first serve")
+print()
+print("selections:")
+i = 0
+while i < len(best_solution):
+	print("\t" + str(preferences[i][0]) + ": " + str(preferences[i][1][best_solution[i]]) + " preference:" + str(best_solution[i] + 1))
+	
+	i += 1
